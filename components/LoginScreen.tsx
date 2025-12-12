@@ -1,0 +1,524 @@
+
+import React, { useState } from 'react';
+import { Button } from './Button';
+import { User, loginUser, loginWithToken, verifyPaystackPayment } from '../services/auth';
+import { BookOpen, AlertCircle, Lock, User as UserIcon, HelpCircle, ArrowLeft, GraduationCap, CheckCircle, Moon, Sun, Key, Smartphone, ShieldCheck, CreditCard, ChevronRight, Calendar, Hash, Banknote, Shield } from 'lucide-react';
+import { ExamType } from '../types';
+import { PAYSTACK_PUBLIC_KEY } from '../services/config';
+
+interface Props {
+  onLogin: (user: User, examType: ExamType) => void;
+  theme: 'light' | 'dark';
+  toggleTheme: () => void;
+}
+
+export const LoginScreen: React.FC<Props> = ({ onLogin, theme, toggleTheme }) => {
+  const [mode, setMode] = useState<'token' | 'admin'>('token');
+  const [view, setView] = useState<'login' | 'payment' | 'token_display'>('login');
+  
+  // Login Form State
+  const [tokenInput, setTokenInput] = useState('');
+  const [adminData, setAdminData] = useState({ username: '', password: '' });
+  
+  // Payment Form State
+  const [purchaseData, setPurchaseData] = useState({
+      fullName: '',
+      phoneNumber: '',
+      email: ''
+  });
+  const [paymentStep, setPaymentStep] = useState<'details' | 'gateway'>('details');
+  
+  const [purchasedToken, setPurchasedToken] = useState('');
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [processingMsg, setProcessingMsg] = useState('');
+
+  // Confirmation Modal State
+  const [showBindConfirm, setShowBindConfirm] = useState(false);
+
+  // --- HANDLERS ---
+
+  const handleTokenLogin = async (e?: React.FormEvent, isConfirmation: boolean = false) => {
+      if (e) e.preventDefault();
+      setError('');
+      setIsLoading(true);
+
+      // UI Safety Valve: Force stop loading after 8 seconds if something hangs
+      const safetyTimer = setTimeout(() => {
+          if (isLoading) {
+              setIsLoading(false);
+              setError("Request timed out. Please check your connection or try again.");
+          }
+      }, 8000);
+
+      try {
+          const formattedToken = tokenInput.trim().toUpperCase();
+          const user = await loginWithToken(formattedToken, isConfirmation);
+          
+          clearTimeout(safetyTimer); // Clear safety timer on success
+          setShowBindConfirm(false); // Close modal if open
+
+          let initialExamType: ExamType = 'JAMB';
+          if (user.allowedExamType === 'WAEC') {
+              initialExamType = 'WAEC';
+          } else if (user.allowedExamType === 'KIDS') {
+              initialExamType = 'KIDS';
+          }
+          
+          onLogin(user, initialExamType); 
+      } catch (err: any) {
+          clearTimeout(safetyTimer); // Clear safety timer on error
+          
+          if (err.message === 'BINDING_REQUIRED') {
+              // Open Confirmation Modal
+              setShowBindConfirm(true);
+              setIsLoading(false);
+              return;
+          }
+
+          setError(err.message || 'Invalid Token or Device Mismatch');
+          setIsLoading(false);
+      }
+  };
+
+  const handleConfirmBinding = () => {
+      handleTokenLogin(undefined, true);
+  };
+
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+    
+    // Small delay to allow UI to show loading state if instant
+    setTimeout(async () => {
+        try {
+            const user = await loginUser(adminData.username, adminData.password, 'admin');
+            onLogin(user, 'JAMB');
+        } catch (err: any) {
+            setError(err.message || 'Admin login failed');
+            setIsLoading(false);
+        }
+    }, 100);
+  };
+
+  const handleProceedToPayment = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!purchaseData.fullName || !purchaseData.email || !purchaseData.phoneNumber) {
+          setError("Please fill all fields");
+          return;
+      }
+      setError('');
+      setPaymentStep('gateway');
+  };
+
+  const launchPaystack = () => {
+      if (PAYSTACK_PUBLIC_KEY.includes('xxxx') || !PAYSTACK_PUBLIC_KEY.startsWith('pk_')) {
+          alert("SETUP INCOMPLETE: Check config.");
+          return;
+      }
+
+      if (!(window as any).PaystackPop) {
+          setError("Paystack SDK not loaded. Check connection.");
+          return;
+      }
+
+      const handler = (window as any).PaystackPop.setup({
+          key: PAYSTACK_PUBLIC_KEY,
+          email: purchaseData.email,
+          amount: 200000, 
+          currency: 'NGN',
+          ref: 'PAY-' + Math.floor((Math.random() * 1000000000) + 1), 
+          metadata: {
+              custom_fields: [
+                  { display_name: "Full Name", variable_name: "full_name", value: purchaseData.fullName },
+                  { display_name: "Phone Number", variable_name: "phone_number", value: purchaseData.phoneNumber }
+              ]
+          },
+          callback: function(response: any) {
+              verifyTransaction(response.reference);
+          },
+          onClose: function() {
+              // alert('Transaction cancelled.');
+          }
+      });
+      handler.openIframe();
+  };
+
+  const verifyTransaction = async (reference: string) => {
+      setIsLoading(true);
+      setProcessingMsg('Verifying Payment...');
+      try {
+          const res = await verifyPaystackPayment(
+              reference,
+              purchaseData.email,
+              purchaseData.fullName,
+              purchaseData.phoneNumber
+          );
+          setPurchasedToken(res.token);
+          setView('token_display');
+          setPaymentStep('details');
+      } catch (err: any) {
+          setError(err.message || "Verification failed. Ref: " + reference);
+      } finally {
+          setIsLoading(false);
+          setProcessingMsg('');
+      }
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col font-sans relative bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
+      
+      {/* --- CONFIRMATION MODAL --- */}
+      {showBindConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-sm w-full overflow-hidden border-t-8 border-yellow-500 transform scale-100 transition-transform">
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 p-6 text-center">
+                      <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/50 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-yellow-200 dark:border-yellow-700">
+                          <Shield size={32} className="text-yellow-600 dark:text-yellow-400" />
+                      </div>
+                      <h3 className="text-lg font-black text-gray-800 dark:text-white uppercase mb-2">Bind Device?</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">
+                          You are about to lock this Access Code to <strong>this current device</strong>.
+                      </p>
+                  </div>
+                  <div className="p-6 pt-2">
+                       <p className="text-xs text-red-600 dark:text-red-400 font-bold mb-6 text-center bg-red-50 dark:bg-red-900/20 p-2 rounded">
+                          WARNING: You will NOT be able to use this code on any other phone or computer after this.
+                       </p>
+                       <div className="flex flex-col gap-3">
+                           <Button 
+                                onClick={handleConfirmBinding} 
+                                isLoading={isLoading}
+                                className="w-full bg-green-700 hover:bg-green-800 text-white font-bold py-3"
+                           >
+                               Yes, Bind to this Device
+                           </Button>
+                           <Button 
+                                onClick={() => { setShowBindConfirm(false); setIsLoading(false); }} 
+                                variant="outline"
+                                className="w-full border-gray-300 text-gray-600 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700"
+                           >
+                               Cancel
+                           </Button>
+                       </div>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      <div className="relative z-10 flex flex-col min-h-screen">
+        <div className="bg-[#006600] dark:bg-green-900 text-white py-6 px-4 shadow-xl border-b-4 border-yellow-500 relative">
+            <button 
+                onClick={toggleTheme} 
+                className="absolute top-4 right-4 p-2 rounded-full hover:bg-green-700/50 text-white transition-colors"
+                title={theme === 'light' ? "Switch to Dark Mode" : "Switch to Light Mode"}
+            >
+                {theme === 'light' ? <Moon size={20} /> : <Sun size={20} className="text-yellow-400"/>}
+            </button>
+            <div className="max-w-6xl mx-auto flex flex-col items-center justify-center text-center gap-3">
+                <div className="bg-white p-2 rounded-full border-2 border-yellow-500 shadow-md">
+                    <GraduationCap className="text-[#006600] w-10 h-10 md:w-12 md:h-12" />
+                </div>
+                <div>
+                    <h1 className="text-2xl md:text-4xl font-black uppercase tracking-wide leading-tight drop-shadow-md text-white">EBUS EDU CONSULT (EEC)</h1>
+                    <p className="text-yellow-400 text-xs md:text-sm font-bold uppercase tracking-[0.25em] mt-2 text-shadow-sm">CBT Practice Portal</p>
+                </div>
+            </div>
+        </div>
+
+        <div className="flex-1 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-gray-800 w-full max-w-md shadow-2xl rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 transform transition-all mt-4 relative">
+                
+                {/* --- CARD HEADER --- */}
+                <div className="pt-8 pb-4 px-8 text-center relative min-h-[80px] flex items-center justify-center">
+                    {view === 'login' && (
+                        <>
+                            <h2 
+                                className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer select-none"
+                            >
+                                {mode === 'token' ? 'Candidate' : 'Admin Login'}
+                            </h2>
+                            <button 
+                                onClick={() => setMode(mode === 'token' ? 'admin' : 'token')} 
+                                className="absolute right-6 top-8 text-gray-300 hover:text-green-600 dark:hover:text-green-400 transition-colors p-1"
+                                title="Toggle Admin Mode"
+                            >
+                                <Lock size={16} />
+                            </button>
+                        </>
+                    )}
+                    
+                    {view === 'token_display' && (
+                        <h2 className="text-xl font-black text-gray-800 dark:text-white uppercase tracking-wider">
+                            Success
+                        </h2>
+                    )}
+
+                    {view === 'payment' && (
+                        <div className="w-full relative flex items-center justify-center">
+                            <button 
+                                onClick={() => {
+                                    if (paymentStep === 'gateway') setPaymentStep('details');
+                                    else setView('login');
+                                }}
+                                className="absolute left-0 -ml-2 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
+                                title="Go Back"
+                            >
+                                <ArrowLeft size={24}/>
+                            </button>
+                            <div className="text-center">
+                                <h2 className="text-xl font-black text-gray-800 dark:text-white uppercase tracking-wider">
+                                    {paymentStep === 'gateway' ? 'Checkout' : 'Buy Access'}
+                                </h2>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
+                                    {paymentStep === 'gateway' ? 'Select Payment' : 'Step 1 of 2'}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="p-6 md:p-8 pt-0">
+                    {/* --- ERROR DISPLAY --- */}
+                    {error && (
+                        <div className="mb-6 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 text-xs rounded flex items-start gap-2">
+                        <AlertCircle size={14} className="mt-0.5 shrink-0" /> <span className="font-semibold">{error}</span>
+                        </div>
+                    )}
+
+                    {/* --- VIEW: TOKEN LOGIN --- */}
+                    {view === 'login' && mode === 'token' && (
+                        <>
+                            <div className="mb-6 bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border-l-4 border-red-600 dark:border-red-500 shadow-sm">
+                                <h3 className="font-bold text-red-800 dark:text-red-300 flex items-center gap-2 text-sm mb-2 uppercase">
+                                    <Smartphone size={16}/> Security Alert
+                                </h3>
+                                <p className="text-xs text-red-700 dark:text-red-200 leading-relaxed font-medium">
+                                    Your <strong>Access Code</strong> will be permanently bound to this device upon login. You will NOT be able to use it on any other phone or computer.
+                                </p>
+                            </div>
+
+                            <form onSubmit={(e) => handleTokenLogin(e)} className="space-y-5">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 uppercase mb-1">Enter Access Code</label>
+                                    <input 
+                                        type="text" 
+                                        placeholder="e.g. EBUS-ABCD-1234-WXYZ" 
+                                        className="w-full p-4 border-2 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-green-600 focus:ring-1 focus:ring-green-600 outline-none transition-colors text-center font-mono text-lg uppercase tracking-widest" 
+                                        value={tokenInput}
+                                        onChange={e => setTokenInput(e.target.value)}
+                                        required
+                                        autoFocus
+                                    />
+                                </div>
+                                <Button isLoading={isLoading && !showBindConfirm} className="w-full bg-[#006600] hover:bg-green-800 text-white font-bold py-4 rounded uppercase text-sm tracking-wider shadow-md">
+                                    Login & Lock to Device
+                                </Button>
+                            </form>
+
+                            <div className="mt-6 text-center">
+                                <p className="text-gray-500 text-xs mb-2">Don't have an Access Code?</p>
+                                <button onClick={() => setView('payment')} className="text-sm font-bold text-green-700 dark:text-green-400 hover:underline flex items-center justify-center gap-1 mx-auto">
+                                    <CreditCard size={16}/> Purchase Access Now
+                                </button>
+                            </div>
+                        </>
+                    )}
+
+                    {/* --- VIEW: PAYMENT --- */}
+                    {view === 'payment' && (
+                        <div className="mt-2">
+                            {paymentStep === 'details' ? (
+                                <>
+                                    <form onSubmit={handleProceedToPayment} className="space-y-4">
+                                        <div className="bg-green-50 dark:bg-green-900/30 p-4 rounded border-2 border-green-200 dark:border-green-800 text-center">
+                                            <div className="flex items-center justify-center gap-2 mb-2 text-green-800 dark:text-green-300 font-bold uppercase text-sm">
+                                                <GraduationCap size={18} />
+                                                Full CBT Access
+                                            </div>
+                                            <div className="text-xs text-green-700 dark:text-green-400 mb-3">
+                                                Includes JAMB, WAEC & <strong>Kids Math</strong>
+                                            </div>
+                                            <div className="text-2xl font-black text-green-900 dark:text-green-200">
+                                                ₦2,000
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 uppercase mb-1">Full Name</label>
+                                            <input 
+                                                type="text"
+                                                placeholder="e.g. John Doe"
+                                                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-green-600 outline-none" 
+                                                value={purchaseData.fullName}
+                                                onChange={e => setPurchaseData({...purchaseData, fullName: e.target.value})}
+                                                required
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 uppercase mb-1">Phone Number</label>
+                                            <input 
+                                                type="tel"
+                                                placeholder="08012345678"
+                                                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-green-600 outline-none" 
+                                                value={purchaseData.phoneNumber}
+                                                onChange={e => setPurchaseData({...purchaseData, phoneNumber: e.target.value})}
+                                                required
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 uppercase mb-1">Email Address</label>
+                                            <input 
+                                                type="email"
+                                                placeholder="you@example.com"
+                                                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-green-600 outline-none" 
+                                                value={purchaseData.email}
+                                                onChange={e => setPurchaseData({...purchaseData, email: e.target.value})}
+                                                required
+                                            />
+                                        </div>
+                                        <Button className="w-full bg-green-700 text-white py-3 flex items-center justify-center gap-2">
+                                            Next <ChevronRight size={16}/>
+                                        </Button>
+                                    </form>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="space-y-6">
+                                        <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 relative">
+                                            <button 
+                                                onClick={() => setPaymentStep('details')}
+                                                className="absolute top-4 right-4 text-xs text-blue-600 hover:underline font-bold"
+                                            >
+                                                Edit
+                                            </button>
+                                            <div className="flex justify-between text-sm mb-2">
+                                                <span className="text-gray-500">Name:</span>
+                                                <span className="font-bold text-gray-800 dark:text-white truncate max-w-[150px]">{purchaseData.fullName}</span>
+                                            </div>
+                                            <div className="flex justify-between text-sm mb-2">
+                                                <span className="text-gray-500">Email:</span>
+                                                <span className="font-bold text-gray-800 dark:text-white truncate max-w-[150px]">{purchaseData.email}</span>
+                                            </div>
+                                            <div className="flex justify-between text-sm border-t border-gray-200 dark:border-gray-700 pt-2 mt-2">
+                                                <span className="text-gray-500 font-bold">Total:</span>
+                                                <span className="font-black text-green-700 dark:text-green-400 text-lg">₦2,000.00</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="pt-0">
+                                            <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-3 uppercase tracking-wide">Select Payment Method</h3>
+                                            
+                                            <div className="space-y-3">
+                                                <button onClick={launchPaystack} className="w-full bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 hover:border-green-500 hover:bg-green-50 dark:hover:bg-gray-600 p-3 rounded-lg flex items-center justify-between group transition-all">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                                                            <CreditCard className="text-green-600" size={20}/>
+                                                        </div>
+                                                        <div className="text-left">
+                                                            <div className="font-bold text-gray-800 dark:text-white group-hover:text-green-700 text-sm">Pay with Card / Bank</div>
+                                                            <div className="text-[10px] text-gray-500">Secured by Paystack</div>
+                                                        </div>
+                                                    </div>
+                                                    <ChevronRight className="text-gray-300 group-hover:text-green-500" size={18}/>
+                                                </button>
+                                                
+                                                <button onClick={() => alert("Please contact admin for bank transfer details.")} className="w-full bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-gray-600 p-3 rounded-lg flex items-center justify-between group transition-all">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                                            <Banknote className="text-blue-600" size={20}/>
+                                                        </div>
+                                                        <div className="text-left">
+                                                            <div className="font-bold text-gray-800 dark:text-white group-hover:text-blue-700 text-sm">Bank Transfer</div>
+                                                            <div className="text-[10px] text-gray-500">Manual Verification</div>
+                                                        </div>
+                                                    </div>
+                                                    <ChevronRight className="text-gray-300 group-hover:text-blue-500" size={18}/>
+                                                </button>
+                                            </div>
+                                            
+                                            {isLoading && (
+                                                <div className="text-center py-4">
+                                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-700 mx-auto mb-2"></div>
+                                                    <p className="text-sm font-bold text-gray-600 dark:text-gray-300">{processingMsg}</p>
+                                                </div>
+                                            )}
+
+                                            <div className="mt-6 flex justify-center">
+                                                <button 
+                                                    onClick={() => setPaymentStep('details')}
+                                                    className="flex items-center gap-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs font-bold uppercase tracking-widest transition-colors"
+                                                >
+                                                    <ArrowLeft size={14}/> Back to Details
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {/* --- VIEW: TOKEN DISPLAY (POST PAYMENT) --- */}
+                    {view === 'token_display' && (
+                        <div className="text-center">
+                            <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
+                                <CheckCircle size={32}/>
+                            </div>
+                            <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">Payment Successful!</h2>
+                            <p className="text-sm text-gray-500 mb-6">Here is your full access code.</p>
+                            
+                            <div className="bg-gray-100 dark:bg-gray-900 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 mb-6">
+                                <p className="font-mono text-2xl font-bold text-green-800 dark:text-green-400 tracking-wider break-all select-all">
+                                    {purchasedToken}
+                                </p>
+                            </div>
+                            
+                            <Button onClick={() => { setTokenInput(purchasedToken); setView('login'); setMode('token'); }} className="w-full bg-green-700 text-white">
+                                Proceed to Login
+                            </Button>
+                        </div>
+                    )}
+
+                    {/* --- VIEW: ADMIN LOGIN --- */}
+                    {view === 'login' && mode === 'admin' && (
+                        <form onSubmit={handleAdminLogin} className="space-y-5">
+                            <div>
+                            <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 uppercase mb-1">Admin Username</label>
+                            <input 
+                                type="text" 
+                                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-green-600 focus:ring-1 focus:ring-green-600 outline-none" 
+                                value={adminData.username}
+                                onChange={e => setAdminData({...adminData, username: e.target.value})}
+                                required
+                            />
+                            </div>
+                            <div>
+                            <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 uppercase mb-1">Admin Password</label>
+                            <input 
+                                type="password" 
+                                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-green-600 focus:ring-1 focus:ring-green-600 outline-none" 
+                                value={adminData.password}
+                                onChange={e => setAdminData({...adminData, password: e.target.value})}
+                                required
+                            />
+                            </div>
+                            <Button isLoading={isLoading} className="w-full bg-[#006600] text-white font-bold py-3 rounded uppercase text-sm">
+                                Enter Admin Panel
+                            </Button>
+                        </form>
+                    )}
+                </div>
+            </div>
+        </div>
+        
+        <footer className="bg-green-950/80 backdrop-blur-sm border-t border-green-800 py-4 text-center text-xs text-green-100/70 font-medium">
+            &copy; {new Date().getFullYear()} EBUS EDU CONSULT (EEC). All Rights Reserved.
+        </footer>
+      </div>
+    </div>
+  );
+};
