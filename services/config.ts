@@ -2,7 +2,7 @@
 // configuration for API connection
 
 // Your Render Backend URL
-export const BACKEND_URL = "https://ebus-edu-consult-backend.onrender.com"; 
+export const BACKEND_URL = "https://ebus-edu-consult-main.onrender.com"; 
 
 // SET THIS TO TRUE TO DISABLE BACKEND AND USE LOCAL STORAGE ONLY
 // Change to 'false' when you want to connect to the real server.

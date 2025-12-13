@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { SubjectSelection } from './components/SubjectSelection';
 import { ExamSimulator } from './components/ExamSimulator';
+import { GameScreen } from './components/GameScreen'; // Import GameScreen
 import { ResultView } from './components/ResultView';
 import { AdminPanel } from './components/AdminPanel';
 import { LoginScreen } from './components/LoginScreen';
@@ -168,6 +169,9 @@ const App: React.FC = () => {
   const handleSubmitExam = async (finalSession: ExamSession) => {
     localStorage.removeItem(SAVE_KEY);
     setHasSavedSession(false);
+    
+    // For Kids Mode, we might want to skip standard result processing or handle it differently
+    // But since GameScreen handles its own logic, this is mostly for standard exams
     const result = calculateResult(finalSession);
     
     // Save Result to Backend (or Offline Queue)
@@ -175,8 +179,6 @@ const App: React.FC = () => {
         try {
             await saveStudentResult(currentUser.username, result);
         } catch (e: any) {
-            // Error caught inside saveStudentResult is likely our custom "Offline" error
-            // showing success message but warning about offline
             console.warn(e.message);
             setSyncMsg("Result saved offline. Will sync when online.");
             setTimeout(() => setSyncMsg(''), 5000);
@@ -248,13 +250,21 @@ const App: React.FC = () => {
       )}
 
       {currentScreen === 'exam' && currentSession && (
-        <ExamSimulator 
-          session={currentSession} 
-          user={currentUser}
-          onSubmit={handleSubmitExam} 
-          theme={theme}
-          toggleTheme={toggleTheme}
-        />
+        currentExamType === 'KIDS' ? (
+             <GameScreen 
+                session={currentSession}
+                onSubmit={handleSubmitExam}
+                onExit={handleRestart}
+             />
+        ) : (
+            <ExamSimulator 
+            session={currentSession} 
+            user={currentUser}
+            onSubmit={handleSubmitExam} 
+            theme={theme}
+            toggleTheme={toggleTheme}
+            />
+        )
       )}
 
       {currentScreen === 'result' && examResult && (

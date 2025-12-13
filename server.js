@@ -15,7 +15,28 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors()); // Allow all origins to prevent preview CORS issues
+// Update CORS to allow your Vercel frontend specifically, along with localhost for dev
+const allowedOrigins = [
+  'https://ebus-edu-consult-main-i97f.vercel.app',
+  'https://ebus-edu-consult-main.onrender.com',
+  'http://localhost:5173',
+  'http://localhost:3000'
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1) {
+      // For now, in development/preview, we can be permissive if the exact origin varies
+      // Un-comment the next line to block unknown origins
+      // return callback(new Error('The CORS policy for this site does not allow access from the specified Origin.'), false);
+      return callback(null, true); // Permissive fallback
+    }
+    return callback(null, true);
+  }
+}));
+
 app.use(express.json({ limit: '50mb' })); 
 
 // --- CONFIGURATION ---
