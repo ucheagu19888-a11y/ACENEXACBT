@@ -54,6 +54,11 @@ const fetchWithTimeout = async (url: string, options: RequestInit = {}, timeout 
 };
 
 const apiRequest = async (endpoint: string, method: string, body?: any) => {
+    // Fast fail if we are definitely offline
+    if (!navigator.onLine && !FORCE_OFFLINE) {
+        throw new Error("Network offline");
+    }
+
     if (FORCE_OFFLINE) throw new Error("Offline Mode");
 
     const url = getApiUrl(endpoint);
@@ -362,6 +367,7 @@ export const saveStudentResult = async (username: string, result: ExamResult) =>
 
 export const syncOfflineResults = async (): Promise<number> => {
     if (FORCE_OFFLINE) return 0;
+    if (!navigator.onLine) return 0;
 
     const queue: QueuedResult[] = JSON.parse(localStorage.getItem(CACHE_KEY_OFFLINE_RESULTS) || '[]');
     if (queue.length === 0) return 0;

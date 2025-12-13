@@ -3,13 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { Subject, Question, ExamType } from '../types';
 import { addQuestionToBank, getBankStats, resetDatabase, clearStudentResults, addBulkQuestions, fetchAllQuestions, deleteQuestion } from '../services/db';
 import { registerStudent, getAllStudents, deleteStudent, User, changePassword, generateManualToken, generateLocalTokenImmediate, getAllTokens, TokenInfo, updateAdminCredentials, toggleTokenStatus, resetTokenDevice } from '../services/auth';
-import { LogOut, Upload, Save, Database, FileText, CheckCircle, AlertTriangle, RefreshCw, Trash2, ShieldAlert, Users, Plus, Settings, List, Moon, Sun, Search, GraduationCap, Banknote, Copy, Check, Ban, Phone, User as UserIcon, Smartphone } from 'lucide-react';
+import { LogOut, Upload, Save, Database, FileText, CheckCircle, AlertTriangle, RefreshCw, Trash2, ShieldAlert, Users, Plus, Settings, List, Moon, Sun, Search, GraduationCap, Banknote, Copy, Check, Ban, Phone, User as UserIcon, Smartphone, WifiOff } from 'lucide-react';
 import { Button } from './Button';
 
 interface Props {
   onBack: () => void;
   theme: 'light' | 'dark';
   toggleTheme: () => void;
+  isOnline: boolean;
 }
 
 const SUBJECTS: Subject[] = ['English', 'Mathematics', 'Physics', 'Chemistry', 'Biology', 'Economics', 'Government', 'Literature', 'CRS'];
@@ -20,7 +21,7 @@ interface LogEntry {
   message: string;
 }
 
-export const AdminPanel: React.FC<Props> = ({ onBack, theme, toggleTheme }) => {
+export const AdminPanel: React.FC<Props> = ({ onBack, theme, toggleTheme, isOnline }) => {
   const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'add' | 'bulk' | 'questions' | 'tokens' | 'settings'>('stats');
   const [stats, setStats] = useState(getBankStats());
   const [isLoading, setIsLoading] = useState(false);
@@ -470,6 +471,13 @@ export const AdminPanel: React.FC<Props> = ({ onBack, theme, toggleTheme }) => {
                         <span className="text-sm font-bold text-gray-600 dark:text-gray-300">Processing Request...</span>
                     </div>
                 )}
+
+                {!isOnline && (
+                    <div className="mb-6 p-4 bg-orange-100 dark:bg-orange-900/30 border-l-4 border-orange-500 text-orange-800 dark:text-orange-200 rounded-r shadow-sm">
+                        <div className="flex items-center gap-2 font-bold mb-1"><WifiOff size={18}/> Offline Mode Detected</div>
+                        <p className="text-xs">Bulk uploads and online token generation are disabled until connection is restored. Local changes will be saved.</p>
+                    </div>
+                )}
                 
                 {activeTab === 'stats' && (
                     <div className="space-y-6">
@@ -569,7 +577,13 @@ export const AdminPanel: React.FC<Props> = ({ onBack, theme, toggleTheme }) => {
                                         />
                                     </div>
                                 </div>
-                                <Button isLoading={isLoading} className="w-full bg-green-700 text-white">Generate Code</Button>
+                                <Button 
+                                    isLoading={isLoading} 
+                                    className={`w-full text-white ${!isOnline ? 'bg-orange-600' : 'bg-green-700'}`}
+                                    title={!isOnline ? 'Will generate locally' : 'Will try online first'}
+                                >
+                                    {!isOnline ? 'Generate Offline Code' : 'Generate Code'}
+                                </Button>
                              </form>
 
                              {lastGeneratedToken && (
@@ -798,7 +812,9 @@ export const AdminPanel: React.FC<Props> = ({ onBack, theme, toggleTheme }) => {
                                 />
                             </div>
 
-                            <Button className="w-full bg-green-700 text-white mt-4">Update Admin Credentials</Button>
+                            <Button disabled={!isOnline} className={`w-full text-white mt-4 ${!isOnline ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-700'}`}>
+                                {isOnline ? 'Update Admin Credentials' : 'Disabled Offline'}
+                            </Button>
                         </form>
                     </div>
                 )}
@@ -836,7 +852,13 @@ export const AdminPanel: React.FC<Props> = ({ onBack, theme, toggleTheme }) => {
                                      <input type="file" onChange={handleFileUpload} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-green-50 file:text-green-700 hover:file:bg-green-100"/>
                                  </div>
                                  <textarea className="w-full h-48 p-2 border rounded font-mono text-xs dark:bg-gray-700 dark:text-white" value={bulkText} onChange={e => setBulkText(e.target.value)} placeholder="Paste CSV..."></textarea>
-                                 <Button onClick={handleBulkUpload} className="w-full bg-green-700 text-white">Upload</Button>
+                                 <Button 
+                                    onClick={handleBulkUpload} 
+                                    disabled={!isOnline}
+                                    className={`w-full text-white ${!isOnline ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-700'}`}
+                                >
+                                    {isOnline ? 'Upload' : 'Bulk Upload Disabled Offline'}
+                                </Button>
                                  <div className="mt-4 p-2 border rounded max-h-48 overflow-y-auto bg-gray-50 dark:bg-gray-900">
                                      {uploadLog.map((l, i) => <div key={i} className={`text-xs ${l.status === 'success' ? 'text-green-600' : 'text-red-600'}`}>{l.message}</div>)}
                                  </div>

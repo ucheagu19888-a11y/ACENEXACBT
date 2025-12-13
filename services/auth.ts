@@ -59,6 +59,11 @@ const withTimeout = <T>(promise: Promise<T>, ms: number, fallbackError: string =
 };
 
 const apiRequest = async (endpoint: string, method: string, body?: any) => {
+    // Fast fail if we are definitely offline
+    if (!navigator.onLine && !FORCE_OFFLINE) {
+        throw new Error("Network offline");
+    }
+
     if (FORCE_OFFLINE) throw new Error("Offline Mode Enforced");
 
     const url = getApiUrl(endpoint);

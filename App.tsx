@@ -10,6 +10,7 @@ import { startExam, calculateResult, saveStudentResult, initializeDatabase, sync
 import { ExamSession, ExamResult, Subject, ExamType } from './types';
 import { getCurrentUser, logoutUser, User } from './services/auth';
 import { WifiOff, RefreshCw } from 'lucide-react';
+import { FORCE_OFFLINE } from './services/config';
 
 const SAVE_KEY = 'jamb_cbt_progress';
 
@@ -33,6 +34,19 @@ const App: React.FC = () => {
       }
       return 'light';
   });
+
+  // Service Worker Registration
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(registration => {
+          console.log('SW registered: ', registration);
+        })
+        .catch(registrationError => {
+          console.log('SW registration failed: ', registrationError);
+        });
+    }
+  }, []);
 
   useEffect(() => {
       if (theme === 'dark') {
@@ -207,12 +221,17 @@ const App: React.FC = () => {
   if (!currentUser || currentScreen === 'login') {
     return (
         <>
-            {!isOnline && (
+            {(FORCE_OFFLINE || !isOnline) && (
                 <div className="bg-red-600 text-white text-xs font-bold text-center py-1 flex items-center justify-center gap-2">
-                    <WifiOff size={12}/> You are offline. Please check your connection.
+                    <WifiOff size={12}/> {FORCE_OFFLINE ? 'STANDALONE MODE' : 'You are currently offline. Some features are disabled.'}
                 </div>
             )}
-            <LoginScreen onLogin={handleLogin} theme={theme} toggleTheme={toggleTheme} />
+            <LoginScreen 
+                onLogin={handleLogin} 
+                theme={theme} 
+                toggleTheme={toggleTheme}
+                isOnline={isOnline}
+            />
         </>
     );
   }
@@ -221,13 +240,13 @@ const App: React.FC = () => {
     <div className="font-sans text-gray-900 dark:text-gray-100 min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-300 flex flex-col">
       
       {/* NETWORK STATUS BAR */}
-      {(!isOnline || isSyncing || syncMsg) && (
+      {(FORCE_OFFLINE || !isOnline || isSyncing || syncMsg) && (
           <div className={`text-xs font-bold text-center py-1 flex items-center justify-center gap-2 transition-colors ${
-              !isOnline ? 'bg-red-600 text-white' : 
+              (FORCE_OFFLINE || !isOnline) ? 'bg-red-600 text-white' : 
               (isSyncing || syncMsg) ? 'bg-blue-600 text-white' : 'bg-transparent'
           }`}>
-              {!isOnline ? (
-                  <><WifiOff size={12}/> OFFLINE MODE - Results will save locally.</>
+              {(FORCE_OFFLINE || !isOnline) ? (
+                  <><WifiOff size={12}/> {FORCE_OFFLINE ? 'STANDALONE MODE (OFFLINE)' : 'OFFLINE MODE'} - Results will save locally.</>
               ) : (
                   <><RefreshCw size={12} className={isSyncing ? "animate-spin" : ""} /> {syncMsg || "Syncing data..."}</>
               )}
@@ -282,6 +301,7 @@ const App: React.FC = () => {
           onBack={handleLogout} 
           theme={theme}
           toggleTheme={toggleTheme}
+          isOnline={isOnline}
         /> 
       )}
     </div>

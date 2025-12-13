@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Button } from './Button';
 import { User, loginUser, loginWithToken, verifyPaystackPayment } from '../services/auth';
-import { BookOpen, AlertCircle, Lock, User as UserIcon, HelpCircle, ArrowLeft, GraduationCap, CheckCircle, Moon, Sun, Key, Smartphone, ShieldCheck, CreditCard, ChevronRight, Calendar, Hash, Banknote, Shield, MessageCircle, Copy, Building2 } from 'lucide-react';
+import { BookOpen, AlertCircle, Lock, User as UserIcon, HelpCircle, ArrowLeft, GraduationCap, CheckCircle, Moon, Sun, Key, Smartphone, ShieldCheck, CreditCard, ChevronRight, Calendar, Hash, Banknote, Shield, MessageCircle, Copy, Building2, WifiOff } from 'lucide-react';
 import { ExamType } from '../types';
 import { PAYSTACK_PUBLIC_KEY } from '../services/config';
 
@@ -10,9 +10,10 @@ interface Props {
   onLogin: (user: User, examType: ExamType) => void;
   theme: 'light' | 'dark';
   toggleTheme: () => void;
+  isOnline: boolean;
 }
 
-export const LoginScreen: React.FC<Props> = ({ onLogin, theme, toggleTheme }) => {
+export const LoginScreen: React.FC<Props> = ({ onLogin, theme, toggleTheme, isOnline }) => {
   const [mode, setMode] = useState<'token' | 'admin'>('token');
   const [view, setView] = useState<'login' | 'payment' | 'token_display'>('login');
   
@@ -326,8 +327,16 @@ export const LoginScreen: React.FC<Props> = ({ onLogin, theme, toggleTheme }) =>
 
                             <div className="mt-6 text-center">
                                 <p className="text-gray-500 text-xs mb-2">Don't have an Access Code?</p>
-                                <button onClick={() => setView('payment')} className="text-sm font-bold text-green-700 dark:text-green-400 hover:underline flex items-center justify-center gap-1 mx-auto">
-                                    <CreditCard size={16}/> Purchase Access Now
+                                <button 
+                                    onClick={() => setView('payment')} 
+                                    disabled={!isOnline}
+                                    className={`text-sm font-bold text-green-700 dark:text-green-400 hover:underline flex items-center justify-center gap-1 mx-auto ${!isOnline ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                    {isOnline ? (
+                                        <><CreditCard size={16}/> Purchase Access Now</>
+                                    ) : (
+                                        <><WifiOff size={16}/> Offline (Payments Disabled)</>
+                                    )}
                                 </button>
                             </div>
                         </>
