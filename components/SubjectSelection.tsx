@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { Subject, ExamResult, ExamType } from '../types';
-import { CheckCircle, PlayCircle, LogOut, User as UserIcon, History, Calendar, Key, X, GraduationCap, Eye, ChevronDown, Moon, Sun, Layers, MousePointer2, Lock, Star, Calculator, PartyPopper } from 'lucide-react';
+import { CheckCircle, PlayCircle, LogOut, User as UserIcon, History, Calendar, Key, X, GraduationCap, Eye, ChevronDown, Moon, Sun, Layers, MousePointer2, Lock, Star, Calculator, PartyPopper, MessageSquare } from 'lucide-react';
 import { Button } from './Button';
 import { User, changePassword } from '../services/auth';
 import { getStudentResults } from '../services/db';
+import { ContactModal } from './ContactModal';
 
 interface Props {
   onStartExam: (subjects: Subject[]) => void;
@@ -38,6 +39,7 @@ export const SubjectSelection: React.FC<Props> = ({ onStartExam, hasSavedSession
   const [selected, setSelected] = useState<Subject[]>([]);
   const [history, setHistory] = useState<ExamResult[]>([]);
   const [showPwdModal, setShowPwdModal] = useState(false);
+  const [showContact, setShowContact] = useState(false);
   const [pwdData, setPwdData] = useState({ old: '', new: '', confirm: '' });
 
   useEffect(() => {
@@ -136,6 +138,13 @@ export const SubjectSelection: React.FC<Props> = ({ onStartExam, hasSavedSession
 
   return (
     <div className="min-h-[100dvh] bg-gray-100 dark:bg-gray-900 flex flex-col items-center justify-start md:justify-center p-0 md:p-4 transition-colors duration-300">
+      
+      <ContactModal 
+        isOpen={showContact} 
+        onClose={() => setShowContact(false)} 
+        initialName={user.fullName}
+      />
+
       <div className={`bg-white dark:bg-gray-800 w-full md:max-w-5xl md:rounded-xl shadow-2xl overflow-hidden mb-0 md:mb-8 relative border-t-8 transition-colors duration-500 flex flex-col h-full md:h-auto ${isJamb ? 'border-green-600' : (isKids ? 'border-purple-600' : 'border-blue-600')}`}>
         
         {/* HEADER */}
@@ -162,10 +171,13 @@ export const SubjectSelection: React.FC<Props> = ({ onStartExam, hasSavedSession
                     <p className="text-green-100/80 text-xs font-mono">{user.regNumber}</p>
                 </div>
                 <div className="flex gap-2">
-                    <button onClick={toggleTheme} className="text-xs bg-black/20 px-3 py-2 rounded hover:bg-black/30 transition flex items-center gap-1 border border-white/10">
+                    <button onClick={toggleTheme} className="text-xs bg-black/20 px-3 py-2 rounded hover:bg-black/30 transition flex items-center gap-1 border border-white/10" title="Toggle Theme">
                         {theme === 'light' ? <Moon size={14}/> : <Sun size={14} className="text-yellow-400"/>}
                     </button>
-                    <button onClick={() => setShowPwdModal(true)} className="text-xs bg-black/20 px-3 py-2 rounded hover:bg-black/30 transition flex items-center gap-1 border border-white/10">
+                    <button onClick={() => setShowContact(true)} className="text-xs bg-black/20 px-3 py-2 rounded hover:bg-black/30 transition flex items-center gap-1 border border-white/10" title="Contact Support">
+                        <MessageSquare size={14}/>
+                    </button>
+                    <button onClick={() => setShowPwdModal(true)} className="text-xs bg-black/20 px-3 py-2 rounded hover:bg-black/30 transition flex items-center gap-1 border border-white/10" title="Change Password">
                         <Key size={14}/>
                     </button>
                     <button onClick={onLogout} className="hidden md:flex text-xs bg-red-600 px-4 py-2 rounded hover:bg-red-700 transition items-center gap-1 font-bold shadow-md">

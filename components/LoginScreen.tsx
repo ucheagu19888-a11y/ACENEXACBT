@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Button } from './Button';
 import { User, loginUser, loginWithToken, verifyPaystackPayment } from '../services/auth';
-import { BookOpen, AlertCircle, Lock, User as UserIcon, HelpCircle, ArrowLeft, GraduationCap, CheckCircle, Moon, Sun, Key, Smartphone, ShieldCheck, CreditCard, ChevronRight, Calendar, Hash, Banknote, Shield } from 'lucide-react';
+import { BookOpen, AlertCircle, Lock, User as UserIcon, HelpCircle, ArrowLeft, GraduationCap, CheckCircle, Moon, Sun, Key, Smartphone, ShieldCheck, CreditCard, ChevronRight, Calendar, Hash, Banknote, Shield, MessageCircle, Copy, Building2 } from 'lucide-react';
 import { ExamType } from '../types';
 import { PAYSTACK_PUBLIC_KEY } from '../services/config';
 
@@ -26,7 +26,7 @@ export const LoginScreen: React.FC<Props> = ({ onLogin, theme, toggleTheme }) =>
       phoneNumber: '',
       email: ''
   });
-  const [paymentStep, setPaymentStep] = useState<'details' | 'gateway'>('details');
+  const [paymentStep, setPaymentStep] = useState<'details' | 'gateway' | 'bank_transfer'>('details');
   
   const [purchasedToken, setPurchasedToken] = useState('');
   const [error, setError] = useState('');
@@ -166,6 +166,12 @@ export const LoginScreen: React.FC<Props> = ({ onLogin, theme, toggleTheme }) =>
       }
   };
 
+  const copyToClipboard = (text: string) => {
+      navigator.clipboard.writeText(text).then(() => {
+          alert("Copied to clipboard!");
+      });
+  };
+
   return (
     <div className="min-h-screen flex flex-col font-sans relative bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
       
@@ -260,6 +266,7 @@ export const LoginScreen: React.FC<Props> = ({ onLogin, theme, toggleTheme }) =>
                             <button 
                                 onClick={() => {
                                     if (paymentStep === 'gateway') setPaymentStep('details');
+                                    else if (paymentStep === 'bank_transfer') setPaymentStep('gateway');
                                     else setView('login');
                                 }}
                                 className="absolute left-0 -ml-2 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
@@ -269,10 +276,10 @@ export const LoginScreen: React.FC<Props> = ({ onLogin, theme, toggleTheme }) =>
                             </button>
                             <div className="text-center">
                                 <h2 className="text-xl font-black text-gray-800 dark:text-white uppercase tracking-wider">
-                                    {paymentStep === 'gateway' ? 'Checkout' : 'Buy Access'}
+                                    {paymentStep === 'gateway' ? 'Checkout' : paymentStep === 'bank_transfer' ? 'Transfer Info' : 'Buy Access'}
                                 </h2>
                                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
-                                    {paymentStep === 'gateway' ? 'Select Payment' : 'Step 1 of 2'}
+                                    {paymentStep === 'gateway' ? 'Select Payment' : paymentStep === 'bank_transfer' ? 'Manual Payment' : 'Step 1 of 2'}
                                 </p>
                             </div>
                         </div>
@@ -385,7 +392,7 @@ export const LoginScreen: React.FC<Props> = ({ onLogin, theme, toggleTheme }) =>
                                         </Button>
                                     </form>
                                 </>
-                            ) : (
+                            ) : paymentStep === 'gateway' ? (
                                 <>
                                     <div className="space-y-6">
                                         <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 relative">
@@ -426,7 +433,7 @@ export const LoginScreen: React.FC<Props> = ({ onLogin, theme, toggleTheme }) =>
                                                     <ChevronRight className="text-gray-300 group-hover:text-green-500" size={18}/>
                                                 </button>
                                                 
-                                                <button onClick={() => alert("Please contact admin for bank transfer details.")} className="w-full bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-gray-600 p-3 rounded-lg flex items-center justify-between group transition-all">
+                                                <button onClick={() => setPaymentStep('bank_transfer')} className="w-full bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-gray-600 p-3 rounded-lg flex items-center justify-between group transition-all">
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
                                                             <Banknote className="text-blue-600" size={20}/>
@@ -455,6 +462,55 @@ export const LoginScreen: React.FC<Props> = ({ onLogin, theme, toggleTheme }) =>
                                                     <ArrowLeft size={14}/> Back to Details
                                                 </button>
                                             </div>
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="space-y-6 animate-in slide-in-from-right duration-300">
+                                        <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-xl border-2 border-blue-200 dark:border-blue-800 text-center shadow-sm">
+                                            <h3 className="text-sm font-black text-blue-800 dark:text-blue-300 uppercase mb-6 tracking-widest border-b border-blue-200 dark:border-blue-700 pb-2">
+                                                Bank Transfer Details
+                                            </h3>
+                                            
+                                            <div className="space-y-5 mb-6">
+                                                <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm">
+                                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Bank Name</p>
+                                                    <p className="text-xl font-bold text-gray-800 dark:text-white flex items-center justify-center gap-2">
+                                                        <Building2 size={18} className="text-blue-600"/> GTB
+                                                    </p>
+                                                </div>
+                                                
+                                                <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm">
+                                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Account Number</p>
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <p className="text-3xl font-mono font-black text-gray-800 dark:text-white tracking-widest select-all">0221414586</p>
+                                                        <button onClick={() => copyToClipboard("0221414586")} className="text-blue-500 hover:text-blue-700 p-1 rounded-full hover:bg-blue-50 dark:hover:bg-gray-700"><Copy size={16}/></button>
+                                                    </div>
+                                                </div>
+
+                                                <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm">
+                                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Account Name</p>
+                                                    <p className="text-base font-bold text-gray-800 dark:text-white">Agua Ebubechukwu Samuel</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
+                                                <p className="text-xs text-green-800 dark:text-green-300 font-bold mb-2">After payment, send proof to:</p>
+                                                <a href="https://wa.me/2349086950567" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-full font-bold text-sm transition-colors shadow-sm">
+                                                    <MessageCircle size={18} /> WhatsApp: 09086950567
+                                                </a>
+                                                <p className="text-[10px] text-green-700 dark:text-green-400 mt-2 leading-tight">For enquiry, complaint and payment dispute</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex justify-center">
+                                            <button 
+                                                onClick={() => setPaymentStep('gateway')}
+                                                className="flex items-center gap-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs font-bold uppercase tracking-widest transition-colors"
+                                            >
+                                                <ArrowLeft size={14}/> Back to Payment Methods
+                                            </button>
                                         </div>
                                     </div>
                                 </>
