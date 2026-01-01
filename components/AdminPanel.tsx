@@ -13,7 +13,7 @@ interface Props {
   isOnline: boolean;
 }
 
-const SUBJECTS: Subject[] = ['English', 'Mathematics', 'Physics', 'Chemistry', 'Biology', 'Economics', 'Government', 'Literature', 'CRS'];
+const SUBJECTS: Subject[] = ['English', 'Mathematics', 'Physics', 'Chemistry', 'Biology', 'Agricultural Science', 'Economics', 'Government', 'Literature', 'CRS', 'Geography', 'Commerce', 'Financial Accounting', 'Civic Education', 'Further Mathematics', 'History', 'Computer Studies'];
 
 interface LogEntry {
   line: number;
@@ -423,9 +423,14 @@ export const AdminPanel: React.FC<Props> = ({ onBack, theme, toggleTheme, isOnli
     if (s.includes('gov')) return 'Government';
     if (s.includes('lit')) return 'Literature';
     if (s.includes('crs') || s.includes('christian') || s.includes('rel')) return 'CRS';
-    if (s.includes('comm')) return 'Commerce';
+    if (s.includes('comm') && !s.includes('computer')) return 'Commerce';
     if (s.includes('agric')) return 'Agricultural Science';
     if (s.includes('geo')) return 'Geography';
+    if (s.includes('computer') || s.includes('comp. studies') || s.includes('ict')) return 'Computer Studies';
+    if (s.includes('fin') || s.includes('account')) return 'Financial Accounting';
+    if (s.includes('civic')) return 'Civic Education';
+    if (s.includes('further') && s.includes('math')) return 'Further Mathematics';
+    if (s.includes('hist')) return 'History';
     return null;
   };
 
