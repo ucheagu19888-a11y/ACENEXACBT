@@ -17,8 +17,8 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 // Update CORS to allow your Vercel frontend specifically, along with localhost for dev
 const allowedOrigins = [
-  'https://ebus-edu-consult-main-i97f.vercel.app',
-  'https://ebus-edu-consult-main.onrender.com',
+  'https://euniceebube93-tech-a-yxbi.bolt.host',
+  'https://acenexacbt.onrender.com',
   'http://localhost:5173',
   'http://localhost:3000'
 ];
