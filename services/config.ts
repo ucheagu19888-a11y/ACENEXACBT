@@ -2,8 +2,8 @@
 // configuration for API connection
 
 // Your Backend URL - FOR LOCAL DEVELOPMENT USE LOCALHOST
-export const LOCALHOST_URL = "http://localhost:5000";
-export const BACKEND_URL = "https://acenexacbt.onrender.com";
+export const BACKEND_URL = "http://localhost:5000";
+
 // SET THIS TO TRUE TO DISABLE BACKEND AND USE LOCAL STORAGE ONLY
 // Change to 'false' when you want to connect to the real server.
 export const FORCE_OFFLINE = false;
